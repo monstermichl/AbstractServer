@@ -6,27 +6,32 @@ import {
     RequestMethod,
 } from './request';
 import { IRoute } from './route';
+import { pathToRegexp } from 'path-to-regexp';
 
-type CalloutMap = {[key in RequestMethod]?: {[path: string]: RequestHandlerInternal}};
+type PathRequestHandlerMapping = {[path: string]: RequestHandlerInternal};
+type CalloutMap = {[key in RequestMethod]?: PathRequestHandlerMapping};
 
 export enum RequestProcessingResult {
     Ok,
     NoMethod,
-    NoOriginalPath,
     NoCallout,
     NoCalloutPromise,
     CalloutFailed,
     Unknown,
 }
 
+export interface IServerConfig {
+    https?: boolean,
+    host?: string,
+    port?: number,
+}
+
 export interface IServer {
-    connect(): Promise<void>;
+    connect(config?: IServerConfig): Promise<void>;
     disconnect(): Promise<void>;
 }
 
 export abstract class AbstractServer implements IServer {
-    protected abstract _PORT: number;
-
     private _connected = false;
     private _routesInitialized = false;
     private _calloutMap: CalloutMap = {};
@@ -35,7 +40,7 @@ export abstract class AbstractServer implements IServer {
      * Starts the server (and if not done yet, configures the routes).
      * @returns Void Promise.
      */
-    async connect(): Promise<void> {
+    async connect(config?: IServerConfig): Promise<void> {
         let result;
 
         if (!this._connected) {
@@ -52,7 +57,7 @@ export abstract class AbstractServer implements IServer {
                 result = Promise.resolve();
             }
         }
-        return (result && this._connect(this._PORT).then(() => { this._connected = true; })) || Promise.reject();
+        return (!this._connected && result && this._connect(config).then(() => { this._connected = true; })) || Promise.reject();
     }
 
     /**
@@ -60,7 +65,7 @@ export abstract class AbstractServer implements IServer {
      * @returns Void Promise.
      */
     disconnect(): Promise<void> {
-        return this._disconnect().then(() => { this._connected = false; });
+        return (this._connected && this._disconnect().then(() => { this._connected = false; })) || Promise.reject();
     }
 
     protected _prepareParam(arg: string): string {
@@ -161,9 +166,9 @@ export abstract class AbstractServer implements IServer {
 
     /**
      * Starts the server.
-     * @param port Port to listen to.
+     * @param config Server config.
      */
-    protected abstract _connect(port: number): Promise<void>;
+    protected abstract _connect(config?: IServerConfig): Promise<void>;
 
     /**
      * Stops the server.
@@ -209,6 +214,7 @@ export abstract class AbstractServer implements IServer {
             /* Cleanup routes. */
             preRoutes = fixSlashes(preRoutes);
             const routeString = `/${preRoutes ? preRoutes + '/' : ''}${fixSlashes(route.route)}`;
+            const routeStringRegex = pathToRegexp(routeString).source;
 
             /* Handle route only if a route-handler is provided. */
             if (route.handler) {
@@ -223,10 +229,10 @@ export abstract class AbstractServer implements IServer {
                 const pathMap = this._calloutMap?.[route.method];
 
                 /* Make sure, path-map is valid (this check if useless since the index
-                    is assigned within the check before. But it's required to make
-                    Typescript happy). */
+                   is assigned within the check before. But it's required to make
+                   Typescript happy). */
                 if (pathMap) {
-                    pathMap[routeString] = route.handler;
+                    pathMap[routeStringRegex] = route.handler;
                 }
             }
 
@@ -252,24 +258,22 @@ export abstract class AbstractServer implements IServer {
     }
 
     /**
-     * Tries to recreate the original path from the actually requested path.
-     * E.g. /products/1 -> /products/{id}
+     * Tries to get the callout from the actually requested path.
      * 
+     * @param method Request method (e.g. GET, POST, ...).
      * @param path Path provided by the server implementation (e.g. Express). E.g. /products/1
-     * @param params Params provided by the server implementation (e.g. Express). E.g. { id: 1 }
      * 
-     * @returns Recreated original path.
+     * @returns Request callout.
      */
-    private _getOriginalPath(path: string, params: Params): string {
-        let originalPath = path;
+    private _findCallout(method: RequestMethod | null, path: string): RequestHandlerInternal | undefined {
+        let callout;
+        const patternMap = (method && method in this._calloutMap) ? this._calloutMap[method] : null;
 
-        /* This method works only if the dictionary is in the same
-           order as the original parameter definition. */
-        Object.entries(params).forEach(([key, value]) => {
-            /* Replace the first appearance of the value. */
-            originalPath = originalPath.replace(`${value}`, this._prepareParam(key));
-        });
-        return originalPath;
+        if (patternMap) {
+            /* Find corresponding callout based on path RegEx match. */
+            callout = Object.entries(patternMap).find(([pattern]) => path.match(pattern))?.[1];
+        }
+        return callout;
     }
 
     /**
@@ -286,7 +290,7 @@ export abstract class AbstractServer implements IServer {
         const params = this._getParams(...args);
         const queryParams = this._getQuery(...args);
         const body = this._getBody(...args);
-        const originalPath = this._getOriginalPath(path, params);
+        const callout = this._findCallout(method, path);
         const sendFailure = (processingResult: RequestProcessingResult) => this._sendResponse(processingResult, null, ...args);
         let processingResult = RequestProcessingResult.Unknown;
         let result;
@@ -294,18 +298,15 @@ export abstract class AbstractServer implements IServer {
         if (!method) {
             /* Without a method, no callout mapping is possible. */
             processingResult = RequestProcessingResult.NoMethod;
-        } else if (!originalPath) {
-            /* Without a path, no callout mapping is possible. */
-            processingResult = RequestProcessingResult.NoOriginalPath;
-        } else if(!this._calloutMap?.[method]?.[originalPath]) {
-            /* Without a defined callout, no callout mapping is possible. */
+        } else if (!callout) {
+            /* Without a callout, no call is possible. */
             processingResult = RequestProcessingResult.NoCallout;
         } else {
             result = new Promise<void>((resolve) => {
-                const callout = this._calloutMap[method]?.[originalPath](path, params, queryParams, body);
+                const calloutPromise = callout.call(this, path, params, queryParams, body);
 
-                if (callout) {
-                    callout
+                if (calloutPromise) {
+                    calloutPromise
                         .then((calloutResult) => this._sendResponse(RequestProcessingResult.Ok, calloutResult, ...args))
                         .then(() => resolve())
                         .catch(() => sendFailure(RequestProcessingResult.CalloutFailed).then(() => resolve()));
