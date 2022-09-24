@@ -1,0 +1,38 @@
+{
+  "name": "abstract-server",
+  "version": "1.0.0",
+  "description": "A module to help abstracting different server implementations (e.g. Express, Hapi, ...) from the actual usage to break dependencies and reduce refactoring hassles.",
+  "main": "./lib/index.js",
+  "types": "./lib/index.d.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "tsc",
+    "lint": "npx eslint ."
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/monstermichl/AbstractServer.git"
+  },
+  "keywords": [
+    "abstract",
+    "server",
+    "nodejs",
+    "javascript",
+    "typescript"
+  ],
+  "author": "Michel Vouillarmet",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/monstermichl/AbstractServer/issues"
+  },
+  "homepage": "https://github.com/monstermichl/AbstractServer#readme",
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^5.38.0",
+    "@typescript-eslint/parser": "^5.38.0",
+    "eslint": "^8.24.0",
+    "typescript": "^4.8.3"
+  },
+  "files": [
+    "./lib/**/*"
+  ]
+}
