@@ -1,3 +1,4 @@
+/* <ignore-in-readme> */
 import * as express from 'express';
 import {
     Request,
@@ -14,6 +15,7 @@ import {
     RequestHandlerParams,
 } from '../src/request';
 import { AppServer } from './app-server';
+/* <dont-ignore-in-readme> */
 
 /* Actual implementation which depends on the Express framework. */
 export class ExpressServer extends AppServer {

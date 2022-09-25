@@ -1,3 +1,4 @@
+/* <ignore-in-readme> */
 import {
     AbstractServer,
     IServerConfig,
@@ -12,6 +13,7 @@ import {
     RequestHandlerParams,
 } from '../src/request';
 import { IRoute } from '../src/route';
+/* <dont-ignore-in-readme> */
 
 /* Abstract implementation of the routes and the handling. This class does not depend on a specific framework. */
 export abstract class AppServer extends AbstractServer {
