@@ -25,5 +25,9 @@ while read line; do
     echo "${line_content}" >> "${README_PATH}"
 done < "${README_TEMPLATE_PATH}";
 
+# Add update info
+echo "" >> "${README_PATH}"
+echo "*Automatically updated on $(date)*" >> "${README_PATH}"
+
 # Go back to this directory.
 popd > /dev/null
