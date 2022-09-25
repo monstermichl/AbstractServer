@@ -1,8 +1,23 @@
 # AbstractServer
-The idea behind AbstractServer is to abstract the logic of a Node.js server from the actual implementation which typically depends on a specfific framework e.g. Express. This way it's easier to replace the framework if required since the logic doesn't have to be implemented again. To realize this idea, the logical parts of the server are usually implemented by a class derived from AbstractServer. However, this class (let's call it AppServer) does not implement the server framework's specific functions but rather keeps them abstract as well. Finally, a third class (let's call it ExpressServer) derives from AppServer and implements the functions which are framework specific. This might seem tedious at the beginning but saves a lot of time if the framework needs to be changed or gets outdated. *Please feel free to participate on this project as I'm pretty sure there's still a lot to improve.*
+The idea behind AbstractServer is to abstract the logic of a Node.js server from the actual implementation which typically depends on a specific framework e.g. Express. This way it's easier to replace the framework if required since the logic doesn't have to be implemented again. To realize this idea, the logical parts of the server are usually implemented by a class derived from AbstractServer. However, this class (let's call it AppServer) does not implement the server framework's specific functions but rather keeps them abstract as well. Finally, a third class (let's call it ExpressServer) derives from AppServer and implements the functions which are framework specific. This might seem tedious at the beginning but saves a lot of time if the framework needs to be changed or gets outdated. *Please feel free to participate on this project as I'm pretty sure there's still a lot to improve.*
 
 ## AppServer
 ```typescript
+import {
+    AbstractServer,
+    IServerConfig,
+} from '../src/abstract-server';
+import {
+    RequestMethod,
+    Query,
+    Params,
+    Body,
+    Headers,
+    RequestHandlerInternal,
+    RequestHandlerParams,
+} from '../src/request';
+import { IRoute } from '../src/route';
+
 /* Abstract implementation of the routes and the handling. This class does not depend on a specific framework. */
 export abstract class AppServer extends AbstractServer {
     /* Define all routes required by the App and the handlers which do the logical processing. */
@@ -13,7 +28,7 @@ export abstract class AppServer extends AbstractServer {
             handler: this._getHelloHandler, /* Use a single request handler. */
             children: [{
                 route: '/world', /* Listen to /hello/world. */
-                
+
                 /* Use several request handlers. The second one is only executed if the first one succeeds. */
                 handler: [this._getHelloHandler, this._getWorldHandler],
             }, {
@@ -70,6 +85,23 @@ export abstract class AppServer extends AbstractServer {
 
 ## ExpressServer
 ```typescript
+import * as express from 'express';
+import {
+    Request,
+    Response,
+} from 'express';
+import { IServerConfig } from '../src/abstract-server';
+import {
+    RequestMethod,
+    Query,
+    Params,
+    Body,
+    Headers,
+    RequestHandlerInternal,
+    RequestHandlerParams,
+} from '../src/request';
+import { AppServer } from './app-server';
+
 /* Actual implementation which depends on the Express framework. */
 export class ExpressServer extends AppServer {
     private _app = express();
