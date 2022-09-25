@@ -6,7 +6,7 @@ README_PATH="README.md"
 LOAD_REGEX="<load:(.+)>"
 
 # Set root directory.
-pushd "${ROOT_PATH}" > /dev/null
+#pushd "${ROOT_PATH}" > /dev/null
 
 # Create README.md.
 echo -n "" > "${README_PATH}"
@@ -30,4 +30,4 @@ echo "" >> "${README_PATH}"
 echo "*Automatically updated on $(date)*" >> "${README_PATH}"
 
 # Go back to this directory.
-popd > /dev/null
+#popd > /dev/null
