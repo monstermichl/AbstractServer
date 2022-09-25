@@ -1,17 +1,17 @@
 import {
-    RequestHandlerInternal,
+    RequestHandler,
     RequestMethod,
 } from './request';
 
 export interface IRoute {
     method: RequestMethod;
     route: string;
-    handler?: RequestHandlerInternal;
+    handler?: RequestHandler | RequestHandler[];
     children?: ISubRoute[];
 }
 
 export interface ISubRoute {
     route: string;
-    handler: RequestHandlerInternal;
+    handler: RequestHandler | RequestHandler[];
     children?: ISubRoute[];
 }
