@@ -5,12 +5,28 @@ on:
     branches: [ "main" ]
     paths-ignore:
       - "README.md"
+      - "./src/index.ts"
   pull_request:
     branches: [ "main" ]
     paths-ignore:
       - "README.md"
+      - "./src/index.ts"
 
 jobs:
+  generate_index_ts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Generate index.ts
+        shell: bash
+        run: ./.github/scripts/generate-index-ts.sh
+      - name: Push index.ts
+        run: |
+          git config --global user.email "monstermichl@users.noreply.github.com"
+          git config --global user.name "monstermichl"
+          git commit index.ts -m "Generate index.ts"
+          git push
+
   lint:
     runs-on: ubuntu-latest
     steps:
