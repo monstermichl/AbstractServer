@@ -3,21 +3,6 @@ The idea behind AbstractServer is to abstract the logic of a Node.js server from
 
 ## AppServer
 ```typescript
-import {
-    AbstractServer,
-    IServerConfig,
-} from '../src/abstract-server';
-import {
-    RequestMethod,
-    Query,
-    Params,
-    Body,
-    Headers,
-    RequestHandlerInternal,
-    RequestHandlerParams,
-} from '../src/request';
-import { IRoute } from '../src/route';
-
 /* Abstract implementation of the routes and the handling. This class does not depend on a specific framework. */
 export abstract class AppServer extends AbstractServer {
     /* Define all routes required by the App and the handlers which do the logical processing. */
@@ -85,23 +70,6 @@ export abstract class AppServer extends AbstractServer {
 
 ## ExpressServer
 ```typescript
-import * as express from 'express';
-import {
-    Request,
-    Response,
-} from 'express';
-import { IServerConfig } from '../src/abstract-server';
-import {
-    RequestMethod,
-    Query,
-    Params,
-    Body,
-    Headers,
-    RequestHandlerInternal,
-    RequestHandlerParams,
-} from '../src/request';
-import { AppServer } from './app-server';
-
 /* Actual implementation which depends on the Express framework. */
 export class ExpressServer extends AppServer {
     private _app = express();
@@ -215,4 +183,4 @@ export class ExpressServer extends AppServer {
 }
 ```
 
-*Automatically updated on Sun Sep 25 13:36:12 UTC 2022*
+*Automatically updated on Sun Sep 25 14:44:58 UTC 2022*
