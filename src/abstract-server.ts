@@ -77,7 +77,7 @@ export abstract class AbstractServer implements IServer {
      * @param route Route to add.
      * @return Boolean Promise.
      */
-     protected async _addRoutes(route: IRoute): Promise<boolean>;
+    protected async _addRoutes(route: IRoute): Promise<boolean>;
 
     /**
      * Adds new routes.
@@ -85,8 +85,8 @@ export abstract class AbstractServer implements IServer {
      * @param routes Routes to add.
      * @return Boolean Promise.
      */
-     protected async _addRoutes(routes: IRoute[]): Promise<boolean>;
-     protected async _addRoutes(arg: unknown): Promise<boolean> {
+    protected async _addRoutes(routes: IRoute[]): Promise<boolean>;
+    protected async _addRoutes(arg: unknown): Promise<boolean> {
         let result;
 
         if (arg instanceof Array) {
@@ -221,9 +221,8 @@ export abstract class AbstractServer implements IServer {
         let result;
 
         if (route) {
-            const fixSlashes = (s: string) => s.replace(/(^\/+)/, '')
-                                               .replace(/(\/+$)/, '')
-                                               .replace(/\/+/g, '/'); /* Trim leading, trailing and doubles slashes. */
+            /* Trim leading, trailing and doubles slashes. */
+            const fixSlashes = (s: string) => s.replace(/(^\/+)/, '').replace(/(\/+$)/, '').replace(/\/+/g, '/');
             
             /* Cleanup routes. */
             preRoutes = fixSlashes(preRoutes);
@@ -237,7 +236,7 @@ export abstract class AbstractServer implements IServer {
 
                 /* Make sure, method is set in callout map if not done yet. */
                 if (!(route.method in this._calloutMap)) {
-                    this._calloutMap[route.method] = {}
+                    this._calloutMap[route.method] = {};
                 }
 
                 const pathMap = this._calloutMap?.[route.method];
@@ -348,5 +347,5 @@ export abstract class AbstractServer implements IServer {
             });
         }
         return result || this._sendResponse(processingResult, calloutParams, ...args);
-    }
+    };
 }
