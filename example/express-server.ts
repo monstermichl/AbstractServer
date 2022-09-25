@@ -22,6 +22,7 @@ export class ExpressServer extends AppServer {
     protected _getMethod(req: Request): RequestMethod | null {
         let method = null;
 
+        /* Map Express request method to AbstractServer request method. */
         switch (req.method.toUpperCase()) {
             case 'GET': method = RequestMethod.GET; break;
             case 'POST': method = RequestMethod.POST; break;
@@ -33,22 +34,27 @@ export class ExpressServer extends AppServer {
     }
 
     protected _getQuery(req: Request): Query {
+        /* Get Express request query. */
         return req.query;
     }
 
     protected _getPath(req: Request): string {
+        /* Get Express request path. */
         return req.path;
     }
 
     protected _getParams(req: Request): Params {
+        /* Get Express request params. */
         return req.params;
     }
 
     protected _getBody(req: Request): Body {
+        /* Get Express request body. */
         return req.body;
     }
 
     protected _getHeaders(req: Request): Headers {
+        /* Get Express request headers. */
         const headers: Headers = {};
 
         Object.entries(req.headers).filter(([_, value]) => value).forEach(([key, value]) => headers[key] = value || '');
@@ -86,6 +92,7 @@ export class ExpressServer extends AppServer {
         return new Promise((resolve, reject) => {
             const port = config?.port || 80;
 
+            /* Start listening to specified port. */
             this._app
                 .listen(port, () => {
                     console.log(`Server listening to port ${port}`);
@@ -107,6 +114,7 @@ export class ExpressServer extends AppServer {
     protected _addRoute(method: RequestMethod, route: string, handler: RequestHandlerInternal): Promise<boolean> {
         let promise;
 
+        /* Use the appropriate handler to serve a request for the provided route. */
         switch (method) {
             case RequestMethod.GET: this._app.get(route, handler); break;
             case RequestMethod.POST: this._app.post(route, handler); break;
