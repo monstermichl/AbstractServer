@@ -1,7 +1,6 @@
 #!/bin/bash
 
 # Constants
-ROOT_PATH='../..'
 README_TEMPLATE_PATH="README-template.md"
 README_PATH="README.md"
 LOAD_REGEX="<load:(.+)>"
@@ -47,4 +46,4 @@ done < "${README_TEMPLATE_PATH}";
 
 # Add update info
 write_to_readme ""
-write_to_readme "*Automatically updated on $(date)*"
+write_to_readme "*Automatically generated on $(date).*"
