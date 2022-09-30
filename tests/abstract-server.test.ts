@@ -2,12 +2,15 @@ import {
     describe,
     it,
 } from 'mocha';
+import { expect } from 'chai';
 import {
     AbstractServer,
     IServerConfig,
 } from '../src/abstract-server';
 import * as sinon from 'sinon';
 import * as express from 'express';
+import * as crypto from 'crypto';
+import axios from 'axios';
 import {
     Request,
     Response,
@@ -24,10 +27,11 @@ import { IRoute } from '../src/route';
 
 class ServerMock extends AbstractServer {
     private _app = express();
+    private _server: any;
 
     protected _defineRoutes(): IRoute[] {
         /* This function is faked by Sinon.JS. */
-        throw new Error('Method not implemented.');
+        return [];
     }
     protected _getMethod(req: Request): RequestMethod | null {
         let method;
@@ -103,17 +107,15 @@ class ServerMock extends AbstractServer {
             const port = config?.port || 80;
 
             /* Start listening to specified port. */
-            this._app
-                .listen(port, () => {
-                    console.log(`Server listening to port ${port}`);
-                    resolve();
-                })
+            this._server = this._app
+                .listen(port, () => resolve())
                 .on('error', (err) => reject(err));
         });
     }
 
     protected _disconnect(): Promise<void> {
-        throw new Error('Method not implemented.');
+        return new Promise((resolve) => this._server ?
+            this._server.close(() => resolve()) : Promise.reject());
     }
 
     protected _transformPath(path: string): string {
@@ -138,19 +140,26 @@ class ServerMock extends AbstractServer {
 }
 
 describe('AbstractServer tests', () => {
-    let serverMock;
+    const HOST = 'localhost';
+    const PORT = 3000;
+    const URL = `http://${HOST}:${PORT}`;
+    const STANDARD_ROUTES = [{
+        method: RequestMethod.GET,
+        route: '/',
+        handler: (params: RequestHandlerParams) => console.log(params),
+    }] as IRoute[];
+    let serverMock: ServerMock;
 
-    const mockConnect = (routes: IRoute[], addRouteResult: Promise<boolean>, connectResult: Promise<void>) => {
-        const defineRoutesFake = sinon.fake(() => routes);
-        const transformPathFake = sinon.fake((path) => path);
-        const addRouteFake = sinon.fake(() => addRouteResult);
-        const connectFake = sinon.fake(() => connectResult);
+    function connect(): Promise<void> {
+        return serverMock.connect({ port: PORT });
+    }
 
+    function mockRoutesDefinition(route: IRoute): void;
+    function mockRoutesDefinition(routes: IRoute[]): void;
+    function mockRoutesDefinition(arg: unknown): void {
+        const defineRoutesFake = sinon.fake(() => (arg instanceof Array) ? arg : [arg]);
         sinon.replace(serverMock, '_defineRoutes' as any, defineRoutesFake);
-        sinon.replace(serverMock, '_transformPath' as any, transformPathFake);
-        sinon.replace(serverMock, '_addRoute' as any, addRouteFake);
-        sinon.replace(serverMock, '_connect' as any, connectFake);
-    };
+    }
 
     beforeEach(() => {
         serverMock = new ServerMock();
@@ -160,15 +169,172 @@ describe('AbstractServer tests', () => {
         serverMock?.disconnect();
     });
 
-    it('Connect', async () => {
-        mockConnect([{
-            method: RequestMethod.GET,
-            route: '/',
-            handler: (params: RequestHandlerParams) => console.log(params),
-        }] as IRoute[],
-        Promise.resolve(true),
-        Promise.resolve());
+    describe('Connect', () => {
+        describe('Successful', () => {
+            it('No routes', () => {
+                return connect();
+            });
+            
+            it('Routes', () => {
+                mockRoutesDefinition(STANDARD_ROUTES);
+                return connect();
+            });
+        });
+    });
 
-        await serverMock.connect().then(() => console.log('connected'));
+    describe('GET request', () => {
+        describe('Successful', () => {
+            it('Simple GET request', () => {
+                mockRoutesDefinition({
+                    method: RequestMethod.GET,
+                    route: '/',
+                    handler: (requestParams: RequestHandlerParams) => {
+                        expect(requestParams.request.method).to.be.equal(RequestMethod.GET);
+
+                        requestParams.response.status = 200;
+                        return Promise.resolve();
+                    },
+                });
+                return connect().then(() => axios.get(URL));
+            });
+
+            it('Nested GET request with parameter', () => {
+                const uuid = crypto.randomUUID().toString();
+                const url = `${URL}/${uuid}`;
+
+                mockRoutesDefinition({
+                    method: RequestMethod.GET,
+                    route: '/',
+                    children: [{
+                        route: '/:uuid',
+                        handler: (requestParams: RequestHandlerParams) => {
+                            expect(requestParams.request.method).to.be.equal(RequestMethod.GET);
+                            expect(requestParams.request.params.uuid).to.be.equal(uuid);
+
+                            requestParams.response.status = 200;
+                            return Promise.resolve();
+                        },
+                    }],
+                });
+                return connect().then(() => axios.get(url));
+            });
+        });
+    });
+
+    describe('POST request', () => {
+        describe('Successful', () => {
+            it('Simple POST request', () => {
+                mockRoutesDefinition({
+                    method: RequestMethod.POST,
+                    route: '/',
+                    handler: (requestParams: RequestHandlerParams) => {
+                        expect(requestParams.request.method).to.be.equal(RequestMethod.POST);
+
+                        requestParams.response.status = 200;
+                        return Promise.resolve();
+                    },
+                });
+                return connect().then(() => axios.post(URL));
+            });
+
+            it('Nested POST request with parameter', () => {
+                const uuid = crypto.randomUUID().toString();
+                const url = `${URL}/${uuid}`;
+
+                mockRoutesDefinition({
+                    method: RequestMethod.POST,
+                    route: '/',
+                    children: [{
+                        route: '/:uuid',
+                        handler: (requestParams: RequestHandlerParams) => {
+                            expect(requestParams.request.method).to.be.equal(RequestMethod.POST);
+                            expect(requestParams.request.params.uuid).to.be.equal(uuid);
+
+                            requestParams.response.status = 200;
+                            return Promise.resolve();
+                        },
+                    }],
+                });
+                return connect().then(() => axios.post(url));
+            });
+        });
+    });
+
+    describe('PATCH request', () => {
+        describe('Successful', () => {
+            it('Simple PATCH request', () => {
+                mockRoutesDefinition({
+                    method: RequestMethod.PATCH,
+                    route: '/',
+                    handler: (requestParams: RequestHandlerParams) => {
+                        expect(requestParams.request.method).to.be.equal(RequestMethod.PATCH);
+
+                        requestParams.response.status = 200;
+                        return Promise.resolve();
+                    },
+                });
+                return connect().then(() => axios.patch(URL));
+            });
+
+            it('Nested PATCH request with parameter', () => {
+                const uuid = crypto.randomUUID().toString();
+                const url = `${URL}/${uuid}`;
+
+                mockRoutesDefinition({
+                    method: RequestMethod.PATCH,
+                    route: '/',
+                    children: [{
+                        route: '/:uuid',
+                        handler: (requestParams: RequestHandlerParams) => {
+                            expect(requestParams.request.method).to.be.equal(RequestMethod.PATCH);
+                            expect(requestParams.request.params.uuid).to.be.equal(uuid);
+
+                            requestParams.response.status = 200;
+                            return Promise.resolve();
+                        },
+                    }],
+                });
+                return connect().then(() => axios.patch(url));
+            });
+        });
+    });
+
+    describe('DELETE request', () => {
+        describe('Successful', () => {
+            it('Simple DELETE request', () => {
+                mockRoutesDefinition({
+                    method: RequestMethod.DELETE,
+                    route: '/',
+                    handler: (requestParams: RequestHandlerParams) => {
+                        expect(requestParams.request.method).to.be.equal(RequestMethod.DELETE);
+
+                        requestParams.response.status = 200;
+                        return Promise.resolve();
+                    },
+                });
+                return connect().then(() => axios.delete(URL));
+            });
+
+            it('Nested DELETE request with parameter', () => {
+                const uuid = crypto.randomUUID().toString();
+                const url = `${URL}/${uuid}`;
+
+                mockRoutesDefinition({
+                    method: RequestMethod.DELETE,
+                    route: '/',
+                    children: [{
+                        route: '/:uuid',
+                        handler: (requestParams: RequestHandlerParams) => {
+                            expect(requestParams.request.method).to.be.equal(RequestMethod.DELETE);
+                            expect(requestParams.request.params.uuid).to.be.equal(uuid);
+
+                            requestParams.response.status = 200;
+                            return Promise.resolve();
+                        },
+                    }],
+                });
+                return connect().then(() => axios.delete(url));
+            });
+        });
     });
 });
