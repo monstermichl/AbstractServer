@@ -20,6 +20,7 @@ import { AppServer } from './app-server';
 /* Actual implementation which depends on the Express framework. */
 export class ExpressServer extends AppServer {
     private _app = express();
+    private _server: any;
 
     protected _getMethod(req: Request): RequestMethod | null {
         let method = null;
@@ -95,7 +96,7 @@ export class ExpressServer extends AppServer {
             const port = config?.port || 80;
 
             /* Start listening to specified port. */
-            this._app
+            this._server = this._app
                 .listen(port, () => {
                     console.log(`Server listening to port ${port}`);
                     resolve();
@@ -105,7 +106,8 @@ export class ExpressServer extends AppServer {
     }
 
     protected _disconnect(): Promise<void> {
-        throw new Error('Method not implemented.');
+        return new Promise((resolve) => this._server ?
+            this._server.close(() => resolve()) : Promise.reject());
     }
 
     protected _transformPath(path: string): string {
