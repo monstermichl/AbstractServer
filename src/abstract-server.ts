@@ -305,8 +305,8 @@ export abstract class AbstractServer implements IServer {
         const body = this._getBody(...args);
         const headers = this._getHeaders(...args);
         const calloutParams = {
-            request: { path, query, params, body, headers },
-            response: { headers: {}, status: 418 /* I'm a teapot */, body: null }
+            request: { method, path, query, params, body, headers },
+            response: { headers: {}, status: 418 /* I'm a teapot */, body: null, misc: {} }
         } as RequestHandlerParams;
 
         let callouts = this._findCallout(method, path);
