@@ -161,6 +161,59 @@ describe('AbstractServer tests', () => {
         sinon.replace(serverMock, '_defineRoutes' as any, defineRoutesFake);
     }
 
+    function axiosMethodFromRequestMethod(method: RequestMethod): (...args: any[]) => Promise<unknown> {
+        let axiosMethod;
+
+        switch (method) {
+            case RequestMethod.GET: axiosMethod = axios.get; break;
+            case RequestMethod.POST: axiosMethod = axios.post; break;
+            case RequestMethod.PATCH: axiosMethod = axios.patch; break;
+            case RequestMethod.DELETE: axiosMethod = axios.delete; break;
+
+            default: throw new Error('Invalid request method');
+        }
+        return axiosMethod;
+    }
+
+    function testRoutes(routes: IRoute[], axiosMethod: (...args: any[]) => Promise<unknown>, url: string): Promise<unknown> {
+        mockRoutesDefinition(routes);
+        return connect().then(() => axiosMethod.call(axios, url));
+    }
+
+    function testSimpleRoute(method: RequestMethod): Promise<unknown> {
+        const routes = [{
+            method,
+            route: '/',
+            handler: (requestParams: RequestHandlerParams) => {
+                expect(requestParams.request.method).to.be.equal(method);
+
+                requestParams.response.status = 200;
+                return Promise.resolve();
+            },
+        }];
+        return testRoutes(routes, axiosMethodFromRequestMethod(method), URL);
+    }
+
+    function testNestedRoute(method: RequestMethod): Promise<unknown> {
+        const uuid = crypto.randomUUID().toString();
+        const url = `${URL}/${uuid}`;
+        const routes = [{
+            method,
+            route: '/',
+            children: [{
+                route: '/:uuid',
+                handler: (requestParams: RequestHandlerParams) => {
+                    expect(requestParams.request.method).to.be.equal(method);
+                    expect(requestParams.request.params.uuid).to.be.equal(uuid);
+
+                    requestParams.response.status = 200;
+                    return Promise.resolve();
+                },
+            }],
+        }];
+        return testRoutes(routes, axiosMethodFromRequestMethod(method), url);
+    }
+
     beforeEach(() => {
         serverMock = new ServerMock();
     });
@@ -184,157 +237,29 @@ describe('AbstractServer tests', () => {
 
     describe('GET request', () => {
         describe('Successful', () => {
-            it('Simple GET request', () => {
-                mockRoutesDefinition({
-                    method: RequestMethod.GET,
-                    route: '/',
-                    handler: (requestParams: RequestHandlerParams) => {
-                        expect(requestParams.request.method).to.be.equal(RequestMethod.GET);
-
-                        requestParams.response.status = 200;
-                        return Promise.resolve();
-                    },
-                });
-                return connect().then(() => axios.get(URL));
-            });
-
-            it('Nested GET request with parameter', () => {
-                const uuid = crypto.randomUUID().toString();
-                const url = `${URL}/${uuid}`;
-
-                mockRoutesDefinition({
-                    method: RequestMethod.GET,
-                    route: '/',
-                    children: [{
-                        route: '/:uuid',
-                        handler: (requestParams: RequestHandlerParams) => {
-                            expect(requestParams.request.method).to.be.equal(RequestMethod.GET);
-                            expect(requestParams.request.params.uuid).to.be.equal(uuid);
-
-                            requestParams.response.status = 200;
-                            return Promise.resolve();
-                        },
-                    }],
-                });
-                return connect().then(() => axios.get(url));
-            });
+            it('Simple GET request', () => testSimpleRoute(RequestMethod.GET));
+            it('Nested GET request with parameter', () => testNestedRoute(RequestMethod.GET));
         });
     });
 
     describe('POST request', () => {
         describe('Successful', () => {
-            it('Simple POST request', () => {
-                mockRoutesDefinition({
-                    method: RequestMethod.POST,
-                    route: '/',
-                    handler: (requestParams: RequestHandlerParams) => {
-                        expect(requestParams.request.method).to.be.equal(RequestMethod.POST);
-
-                        requestParams.response.status = 200;
-                        return Promise.resolve();
-                    },
-                });
-                return connect().then(() => axios.post(URL));
-            });
-
-            it('Nested POST request with parameter', () => {
-                const uuid = crypto.randomUUID().toString();
-                const url = `${URL}/${uuid}`;
-
-                mockRoutesDefinition({
-                    method: RequestMethod.POST,
-                    route: '/',
-                    children: [{
-                        route: '/:uuid',
-                        handler: (requestParams: RequestHandlerParams) => {
-                            expect(requestParams.request.method).to.be.equal(RequestMethod.POST);
-                            expect(requestParams.request.params.uuid).to.be.equal(uuid);
-
-                            requestParams.response.status = 200;
-                            return Promise.resolve();
-                        },
-                    }],
-                });
-                return connect().then(() => axios.post(url));
-            });
+            it('Simple POST request', () => testSimpleRoute(RequestMethod.POST));
+            it('Nested POST request with parameter', () => testNestedRoute(RequestMethod.POST));
         });
     });
 
     describe('PATCH request', () => {
         describe('Successful', () => {
-            it('Simple PATCH request', () => {
-                mockRoutesDefinition({
-                    method: RequestMethod.PATCH,
-                    route: '/',
-                    handler: (requestParams: RequestHandlerParams) => {
-                        expect(requestParams.request.method).to.be.equal(RequestMethod.PATCH);
-
-                        requestParams.response.status = 200;
-                        return Promise.resolve();
-                    },
-                });
-                return connect().then(() => axios.patch(URL));
-            });
-
-            it('Nested PATCH request with parameter', () => {
-                const uuid = crypto.randomUUID().toString();
-                const url = `${URL}/${uuid}`;
-
-                mockRoutesDefinition({
-                    method: RequestMethod.PATCH,
-                    route: '/',
-                    children: [{
-                        route: '/:uuid',
-                        handler: (requestParams: RequestHandlerParams) => {
-                            expect(requestParams.request.method).to.be.equal(RequestMethod.PATCH);
-                            expect(requestParams.request.params.uuid).to.be.equal(uuid);
-
-                            requestParams.response.status = 200;
-                            return Promise.resolve();
-                        },
-                    }],
-                });
-                return connect().then(() => axios.patch(url));
-            });
+            it('Simple PATCH request', () => testSimpleRoute(RequestMethod.PATCH));
+            it('Nested PATCH request with parameter', () => testNestedRoute(RequestMethod.PATCH));
         });
     });
 
     describe('DELETE request', () => {
         describe('Successful', () => {
-            it('Simple DELETE request', () => {
-                mockRoutesDefinition({
-                    method: RequestMethod.DELETE,
-                    route: '/',
-                    handler: (requestParams: RequestHandlerParams) => {
-                        expect(requestParams.request.method).to.be.equal(RequestMethod.DELETE);
-
-                        requestParams.response.status = 200;
-                        return Promise.resolve();
-                    },
-                });
-                return connect().then(() => axios.delete(URL));
-            });
-
-            it('Nested DELETE request with parameter', () => {
-                const uuid = crypto.randomUUID().toString();
-                const url = `${URL}/${uuid}`;
-
-                mockRoutesDefinition({
-                    method: RequestMethod.DELETE,
-                    route: '/',
-                    children: [{
-                        route: '/:uuid',
-                        handler: (requestParams: RequestHandlerParams) => {
-                            expect(requestParams.request.method).to.be.equal(RequestMethod.DELETE);
-                            expect(requestParams.request.params.uuid).to.be.equal(uuid);
-
-                            requestParams.response.status = 200;
-                            return Promise.resolve();
-                        },
-                    }],
-                });
-                return connect().then(() => axios.delete(url));
-            });
+            it('Simple DELETE request', () => testSimpleRoute(RequestMethod.DELETE));
+            it('Nested DELETE request with parameter', () => testNestedRoute(RequestMethod.DELETE));
         });
     });
 });
