@@ -51,7 +51,11 @@ export abstract class AbstractServer implements IServer {
                 result = Promise.resolve();
             }
         }
-        return (!this._connected && result && this._connect(config).then(() => { this._connected = true; })) || Promise.reject();
+
+        if (!this._connected && result) {
+            result = this._connect(config).then(() => { this._connected = true; });
+        }
+        return result || Promise.reject();
     }
 
     /**
@@ -94,6 +98,11 @@ export abstract class AbstractServer implements IServer {
             }
             result = Promise.resolve(addResult);
         } else {
+            /* This branch is never reached (at least for now), since routes
+               cannot be defined externally as IServer does not expose a method
+               to add a route afterwards. Imo, this makes sense in terms of
+               security to prevent hackers from adding additional routes through
+               badly handled requests. */
             result = this._addRouteInternal(arg as IRoute);
         }
         return result;
@@ -160,7 +169,7 @@ export abstract class AbstractServer implements IServer {
      * 
      * @return Void Promise.
      */
-    protected abstract _sendResponse(error: string | null, params: RequestHandlerParams, ...args: unknown[]): Promise<void>;
+    protected abstract _sendResponse(error: Error | string | null, params: RequestHandlerParams, ...args: unknown[]): Promise<void>;
 
     /**
      * Starts the server.
@@ -334,8 +343,8 @@ export abstract class AbstractServer implements IServer {
                             await this._sendResponse(null, calloutParams, ...args);
                             resolve();
                         }
-                    } catch (err) {
-                        await this._sendResponse('Request handler failed', calloutParams, ...args);
+                    } catch (err: unknown) {
+                        await this._sendResponse(err as Error | string | null, calloutParams, ...args);
                         reject(err);
                     }
                     return dontBreakLoop;
