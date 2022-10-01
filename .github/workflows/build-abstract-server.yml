@@ -49,14 +49,6 @@ jobs:
         run: |
           npm ci
           npm run test
-      - name: Commit coverage report
-        run: |
-          git pull
-          git config --global user.email "monstermichl@users.noreply.github.com"
-          git config --global user.name "monstermichl"
-          git add ./coverage
-          git commit -m "Update coverage report"
-          git push
 
   build:
     runs-on: ubuntu-latest

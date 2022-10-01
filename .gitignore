@@ -3,3 +3,4 @@ lib
 example/build
 example/node_modules
 .nyc_output
+coverage
