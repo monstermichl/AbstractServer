@@ -6,11 +6,13 @@ on:
     paths-ignore:
       - "README.md"
       - "./src/index.ts"
+      - "./coverage/**/*"
   pull_request:
     branches: [ "main" ]
     paths-ignore:
       - "README.md"
       - "./src/index.ts"
+      - "./coverage/**/*"
 
 jobs:
   run:
