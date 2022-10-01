@@ -5,7 +5,7 @@
   "main": "./lib/index.js",
   "types": "./lib/index.d.ts",
   "scripts": {
-    "test": "npx nyc --reporter=html --reporter=text --clean mocha --require ts-node/register ./tests/*.test.ts",
+    "test": "npx nyc mocha --require ts-node/register ./tests/*.test.ts",
     "build": "tsc",
     "lint": "npx eslint ."
   },
@@ -27,6 +27,7 @@
   },
   "homepage": "https://github.com/monstermichl/AbstractServer#readme",
   "devDependencies": {
+    "@istanbuljs/nyc-config-typescript": "^1.0.2",
     "@types/chai": "^4.3.3",
     "@types/express": "^4.17.14",
     "@types/mocha": "^9.1.1",

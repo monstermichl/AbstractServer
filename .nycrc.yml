@@ -1,0 +1,12 @@
+extends: '@istanbuljs/nyc-config-typescript'
+clean: true
+reporter:
+  - 'html'
+  - 'text'
+
+# Set coverage checks
+check-coverage: true  
+branches: 80
+lines: 80
+functions: 100
+statements: 80
