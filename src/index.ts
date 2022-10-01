@@ -10,6 +10,7 @@ import {
     Params,
     Query,
     Body,
+    Misc,
     Headers,
     RequestHandlerInternal,
     RequestHandler,
@@ -29,6 +30,7 @@ export {
     Params,
     Query,
     Body,
+    Misc,
     Headers,
     RequestHandlerInternal,
     RequestHandler,
@@ -36,4 +38,4 @@ export {
     ISubRoute,
 };
 
-/* Automatically generated on Sun Sep 25 19:05:01 UTC 2022. */
+/* Automatically generated on Fri Sep 30 16:05:06 UTC 2022. */
