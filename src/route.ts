@@ -12,6 +12,6 @@ export interface IRoute {
 
 export interface ISubRoute {
     route: string;
-    handler: RequestHandler | RequestHandler[];
+    handler?: RequestHandler | RequestHandler[];
     children?: ISubRoute[];
 }
