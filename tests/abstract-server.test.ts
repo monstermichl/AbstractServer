@@ -76,8 +76,6 @@ class ServerMock extends AbstractServer {
     }
 
     protected _sendResponse(error: string | null, params: RequestHandlerParams, req: Request, res: Response): Promise<void> {
-        let promise;
-
         /* Send OK response only, if no error occurred. */
         if (!error) {
             const responseParams = params.response;
@@ -94,12 +92,11 @@ class ServerMock extends AbstractServer {
             } else {
                 res.send(responseParams.body);
             }
-            promise = Promise.resolve();
         } else {
             /* Internal server error. */
             res.status(500).send(error);
         }
-        return promise || Promise.reject();
+        return Promise.resolve();
     }
 
     protected _connect(config?: IServerConfig | undefined): Promise<void> {
@@ -161,6 +158,21 @@ describe('AbstractServer tests', () => {
         sinon.replace(serverMock, '_defineRoutes' as any, defineRoutesFake);
     }
 
+    function mockConnectFails(): void {
+        const connectFake = sinon.fake(() => Promise.reject());
+        sinon.replace(serverMock, '_connect' as any, connectFake);
+    }
+
+    function mockNoMethod(): void {
+        const getMethodFake = sinon.fake(() => null);
+        sinon.replace(serverMock, '_getMethod' as any, getMethodFake);
+    }
+
+    function mockPath(path: string): void {
+        const getPathFake = sinon.fake(() => path);
+        sinon.replace(serverMock, '_getPath' as any, getPathFake);
+    }
+
     function axiosMethodFromRequestMethod(method: RequestMethod): (...args: any[]) => Promise<unknown> {
         let axiosMethod;
 
@@ -175,42 +187,60 @@ describe('AbstractServer tests', () => {
         return axiosMethod;
     }
 
-    function testRoutes(routes: IRoute[], axiosMethod: (...args: any[]) => Promise<unknown>, url: string): Promise<unknown> {
-        mockRoutesDefinition(routes);
+    function testRoutes(route: IRoute, axiosMethod: (...args: any[]) => Promise<unknown>, url: string): Promise<unknown>;
+    function testRoutes(routes: IRoute[], axiosMethod: (...args: any[]) => Promise<unknown>, url: string): Promise<unknown>;
+    function testRoutes(arg: any, axiosMethod: (...args: any[]) => Promise<unknown>, url: string): Promise<unknown> {
+        mockRoutesDefinition(arg);
         return connect().then(() => axiosMethod.call(axios, url));
     }
 
-    function testSimpleRoute(method: RequestMethod): Promise<unknown> {
-        const routes = [{
+    function testSimpleRoute(method: RequestMethod, array?: boolean): Promise<unknown>;
+    function testSimpleRoute(method: RequestMethod, callout?: (...args: []) => Promise<void>): Promise<unknown>;
+    function testSimpleRoute(method: RequestMethod, arg: unknown = true): Promise<unknown> {
+        let array: boolean;
+        let callout;
+
+        if (typeof arg === 'boolean') {
+            array = arg;
+        } else {
+            array = false;
+            callout = arg;
+        }
+
+        const route = {
             method,
             route: '/',
-            handler: (requestParams: RequestHandlerParams) => {
+            handler: callout ? callout : (requestParams: RequestHandlerParams) => {
                 expect(requestParams.request.method).to.be.equal(method);
 
                 requestParams.response.status = 200;
                 return Promise.resolve();
             },
-        }];
-        return testRoutes(routes, axiosMethodFromRequestMethod(method), URL);
+        } as IRoute;
+        return testRoutes(array ? [route] as any: route, axiosMethodFromRequestMethod(method), URL);
     }
 
     function testNestedRoute(method: RequestMethod): Promise<unknown> {
         const uuid = crypto.randomUUID().toString();
-        const url = `${URL}/${uuid}`;
+        const subRoute = 'sub';
+        const url = `${URL}/${subRoute}/${uuid}`;
         const routes = [{
             method,
             route: '/',
             children: [{
-                route: '/:uuid',
-                handler: (requestParams: RequestHandlerParams) => {
-                    expect(requestParams.request.method).to.be.equal(method);
-                    expect(requestParams.request.params.uuid).to.be.equal(uuid);
-
-                    requestParams.response.status = 200;
-                    return Promise.resolve();
-                },
+                route: `${subRoute}`,
+                children: [{
+                    route: '/:uuid',
+                    handler: (requestParams: RequestHandlerParams) => {
+                        expect(requestParams.request.method).to.be.equal(method);
+                        expect(requestParams.request.params.uuid).to.be.equal(uuid);
+        
+                        requestParams.response.status = 200;
+                        return Promise.resolve();
+                    },
+                }],
             }],
-        }];
+        }] as IRoute[];
         return testRoutes(routes, axiosMethodFromRequestMethod(method), url);
     }
 
@@ -219,6 +249,7 @@ describe('AbstractServer tests', () => {
     });
 
     afterEach(() => {
+        sinon.restore();
         serverMock?.disconnect();
     });
 
@@ -232,34 +263,73 @@ describe('AbstractServer tests', () => {
                 mockRoutesDefinition(STANDARD_ROUTES);
                 return connect();
             });
+
+            it('Routes are defined, but connect fails', () => {
+                mockConnectFails();
+                return connect().catch(() => {
+                    sinon.restore();
+                    return connect();
+                });
+            });
+        });
+
+        describe('Failed', () => {
+            it('No routes', () => {
+                mockConnectFails();
+
+                /* Return inversed logic to test if connect failed. */
+                return connect()
+                    .then(() => Promise.reject())
+                    .catch(() => Promise.resolve());
+            });
+
+            it('Null route', () => {
+                mockRoutesDefinition([null as unknown as IRoute]);
+
+                /* Return inversed logic to test if connect failed. */
+                return connect()
+                    .then(() => Promise.reject())
+                    .catch(() => Promise.resolve());
+            });
+
+            it('Already connected', () => {
+                /* Return inversed logic to test if connect failed. */
+                return connect()
+                    .then(() => connect())
+                    .then(() => Promise.reject())
+                    .catch(() => Promise.resolve());
+            });
         });
     });
 
-    describe('GET request', () => {
+    describe('Handle GET, POST, PATCH and DELETE requests', () => {
         describe('Successful', () => {
-            it('Simple GET request', () => testSimpleRoute(RequestMethod.GET));
-            it('Nested GET request with parameter', () => testNestedRoute(RequestMethod.GET));
+            it('GET', () => testSimpleRoute(RequestMethod.GET, false));
+            it('GET', () => testSimpleRoute(RequestMethod.GET));
+            it('POST', () => testSimpleRoute(RequestMethod.POST));
+            it('PATCH', () => testSimpleRoute(RequestMethod.PATCH));
+            it('DELETE', () => testSimpleRoute(RequestMethod.DELETE));
+            it('GET', () => testNestedRoute(RequestMethod.GET));
+            it('POST', () => testNestedRoute(RequestMethod.POST));
+            it('PATCH', () => testNestedRoute(RequestMethod.PATCH));
+            it('DELETE', () => testNestedRoute(RequestMethod.DELETE));
         });
-    });
 
-    describe('POST request', () => {
-        describe('Successful', () => {
-            it('Simple POST request', () => testSimpleRoute(RequestMethod.POST));
-            it('Nested POST request with parameter', () => testNestedRoute(RequestMethod.POST));
-        });
-    });
+        describe('Failed', () => {
+            it('No method', () => {
+                mockNoMethod();
+                testSimpleRoute(RequestMethod.GET).catch((err) => expect(err).to.be.equal('No request method'));
+            });
 
-    describe('PATCH request', () => {
-        describe('Successful', () => {
-            it('Simple PATCH request', () => testSimpleRoute(RequestMethod.PATCH));
-            it('Nested PATCH request with parameter', () => testNestedRoute(RequestMethod.PATCH));
-        });
-    });
+            it('No request handler', () => {
+                mockPath('/no-valid-path-4-sure');
+                testSimpleRoute(RequestMethod.GET).catch((err) => expect(err).to.be.equal('No request handler'));
+            });
 
-    describe('DELETE request', () => {
-        describe('Successful', () => {
-            it('Simple DELETE request', () => testSimpleRoute(RequestMethod.DELETE));
-            it('Nested DELETE request with parameter', () => testNestedRoute(RequestMethod.DELETE));
+            it('Request handler failed', () => {
+                const rejectMessage = 'Failed-4-sure';
+                testSimpleRoute(RequestMethod.GET, () => Promise.reject(rejectMessage)).catch((err) => expect(err).to.be.equal(rejectMessage));
+            });
         });
     });
 });
