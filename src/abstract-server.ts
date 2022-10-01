@@ -62,10 +62,6 @@ export abstract class AbstractServer implements IServer {
         return (this._connected && this._disconnect().then(() => { this._connected = false; })) || Promise.reject();
     }
 
-    protected _prepareParam(arg: string): string {
-        return `{${arg}}`;
-    }
-
     /**
      * Returns the routes which shall be handled.
      */
