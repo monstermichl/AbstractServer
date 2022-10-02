@@ -89,7 +89,7 @@ jobs:
     - uses: actions/checkout@v3
     - name: Run README.md generator
       shell: bash
-      run: ./.github/scripvts/build-readme.sh
+      run: ./.github/scripts/build-readme.sh
     - name: Push README.md
       run: |
         git pull
