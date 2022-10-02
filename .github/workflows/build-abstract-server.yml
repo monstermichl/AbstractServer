@@ -76,6 +76,21 @@ jobs:
     - run: npm ci
     - run: npm run build
 
+  update_readme:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Run README.md generator
+      shell: bash
+      run: ./.github/scripts/build-readme.sh
+    - name: Push README.md
+      run: |
+        git pull
+        git config --global user.email "$GIT_MAIL"
+        git config --global user.name "$GIT_USER"
+        git commit README.md -m "Generate README.md"
+        git push
+
   # https://docs.github.com/en/actions/publishing-packages/publishing-nodejs-packages#publishing-packages-to-the-npm-registry
   release:
     runs-on: ubuntu-latest
