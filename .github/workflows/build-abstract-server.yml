@@ -25,13 +25,13 @@ jobs:
   generate_index_ts:
     name: Generate index.ts
     runs-on: ubuntu-latest
-    if: ${{ github.event_name != 'release' }}
     steps:
       - uses: actions/checkout@v3
       - name: Generate index.ts
         shell: bash
         run: ./.github/scripts/generate-index-ts.sh
       - name: Push index.ts
+        if: ${{ github.event_name != 'release' }}
         run: |
           git pull
           git config --global user.email "$GIT_MAIL"
@@ -84,13 +84,13 @@ jobs:
     name: Update README.md
     runs-on: ubuntu-latest
     needs: build
-    if: ${{ github.event_name != 'release' }}
     steps:
     - uses: actions/checkout@v3
     - name: Run README.md generator
       shell: bash
       run: ./.github/scripts/build-readme.sh
     - name: Push README.md
+      if: ${{ github.event_name != 'release' }}
       run: |
         git pull
         git config --global user.email "$GIT_MAIL"
