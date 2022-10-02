@@ -20,12 +20,11 @@ on:
 env:
   GIT_MAIL: 'monstermichl@users.noreply.github.com'
   GIT_USER: 'monstermichl'
-  IS_RELEASE: ${{ github.event_name == 'release' }}
 
 jobs:
   generate_index_ts:
     runs-on: ubuntu-latest
-    if: ${{ !$IS_RELEASE }}
+    if: ${{ github.event_name != 'release' }}
     steps:
       - uses: actions/checkout@v3
       - name: Generate index.ts
@@ -80,7 +79,7 @@ jobs:
   update_readme:
     runs-on: ubuntu-latest
     needs: build
-    if: ${{ !$IS_RELEASE }}
+    if: ${{ github.event_name != 'release' }}
     steps:
     - uses: actions/checkout@v3
     - name: Run README.md generator
@@ -98,7 +97,7 @@ jobs:
   release:
     runs-on: ubuntu-latest
     needs: build
-    if: ${{ $IS_RELEASE }}
+    if: ${{ github.event_name == 'release' }}
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-node@v3
