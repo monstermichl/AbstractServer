@@ -103,7 +103,7 @@ jobs:
     name: Release
     runs-on: ubuntu-latest
     needs: build
-    #if: ${{ github.event_name == 'release' }}
+    if: ${{ github.event_name == 'release' }}
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-node@v3
@@ -113,6 +113,6 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npx npm-packlist
-      #- run: npm publish
+      - run: npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
