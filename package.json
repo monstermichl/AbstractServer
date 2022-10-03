@@ -1,6 +1,6 @@
 {
   "name": "el-abstracto",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A module to help abstracting different server implementations (e.g. Express, Hapi, ...) from the actual usage to break dependencies and reduce refactoring hassles.",
   "main": "./lib/index.js",
   "types": "./lib/index.d.ts",
