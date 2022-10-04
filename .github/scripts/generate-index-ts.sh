@@ -4,7 +4,7 @@
 EXTENSION=".ts"
 SRC_PATH="./src"
 INDEX_TS_FILE="index${EXTENSION}"
-EXPORT_PATTERN="export[[:blank:]][a-zA-Z0-9_]+[[:blank:]]+([a-zA-Z0-9_]+)[[:blank:]]*(extends|implements|\{|\=)"
+EXPORT_PATTERN="export[[:blank:]]([a-zA-Z0-9_]+[[:blank:]]+)*(class|interface|enum|type)[[:blank:]]([a-zA-Z0-9_]+)[[:blank:]]*(extends|implements|\{|\=)"
 
 # Variables
 exports=()
@@ -28,7 +28,8 @@ for file in $(ls); do
         # Read code line by line and look for exports.
         while read code; do
             if [[ "${code}" =~ ${EXPORT_PATTERN} ]]; then
-                exports_temp+=("${BASH_REMATCH[1]}")
+                echo "exporting ${BASH_REMATCH[3]}"
+                exports_temp+=("${BASH_REMATCH[3]}")
             fi
         done < "${file}"
 
