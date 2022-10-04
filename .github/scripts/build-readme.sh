@@ -43,7 +43,3 @@ while read line; do
         write_to_readme "${line_content}"
     fi
 done < "${README_TEMPLATE_PATH}";
-
-# Add update info
-write_to_readme ""
-write_to_readme "*Automatically generated on $(date).*"
