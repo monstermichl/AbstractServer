@@ -190,5 +190,3 @@ export class ExpressServer extends AppServer {
     }
 }
 ```
-
-*Automatically generated on Mon Oct  3 13:57:20 UTC 2022.*
