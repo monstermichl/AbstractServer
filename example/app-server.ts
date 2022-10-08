@@ -11,6 +11,10 @@ import {
     Headers,
     RequestHandlerInternal,
     RequestHandlerParams,
+    HeaderValue,
+    RequestHandlerRequest,
+    RequestHandlerResponse,
+    RequestHandlerInfo,
 } from '../src/request';
 import { IRoute } from '../src/route';
 /* <dont-ignore-in-readme> */
@@ -43,38 +47,35 @@ export abstract class AppServer extends AbstractServer {
     protected abstract _getParams(...args: unknown[]): Params;
     protected abstract _getBody(...args: unknown[]): Body;
     protected abstract _getHeaders(...args: unknown[]): Headers
-    protected abstract _sendResponse(error: string | null, params: RequestHandlerParams, ...args: unknown[]): Promise<void>;
+    protected abstract _setHeader(header: string, value: HeaderValue, ...args: unknown[]): boolean;
+    protected abstract _setStatus(status: number, ...args: unknown[]): boolean;
+    protected abstract _send(body?: Body, ...args: unknown[]): Promise<void>;
     protected abstract _connect(config?: IServerConfig | undefined): Promise<void>;
     protected abstract _disconnect(): Promise<void>;
     protected abstract _transformPath(path: string): string;
     protected abstract _addRoute(method: RequestMethod, route: string, handler: RequestHandlerInternal): Promise<boolean>;
 
-    private _getHelloHandler(params: RequestHandlerParams): Promise<void> {
-        const responseParams = params.response;
+    private _getHelloHandler(_: RequestHandlerRequest, response: RequestHandlerResponse, handlerInfo: RequestHandlerInfo): Promise<void> {
+        response.body = ['Hello']; /* Set body as array. */
+        response.status = 200;
 
-        responseParams.body = ['Hello']; /* Set body as array. */
-        responseParams.status = 200;
-
-        return Promise.resolve();
+        /* If this was the last handler, send the response. */
+        return handlerInfo.last ? response.send() as Promise<void> : Promise.resolve();
     }
 
-    private _getWorldHandler(params: RequestHandlerParams): Promise<void> {
-        const responseParams = params.response;
-
+    private _getWorldHandler(_: RequestHandlerRequest, response: RequestHandlerResponse): Promise<void> {
         /* Append to previously defined body array. */
-        (responseParams.body as unknown[]).push('World');
-        responseParams.status = 200;
+        (response.body as unknown[]).push('World');
+        response.status = 200;
 
-        return Promise.resolve();
+        return response.send() as Promise<void>;
     }
 
-    private _getValueHandler(params: RequestHandlerParams): Promise<void> {
-        const responseParams = params.response;
-
+    private _getValueHandler(request: RequestHandlerRequest, response: RequestHandlerResponse): Promise<void> {
         /* Append to previously defined body array. */
-        (responseParams.body as unknown[]).push(parseInt(params.request.params.value as string));
-        responseParams.status = 200;
+        (response.body as unknown[]).push(parseInt(request.params.value as string));
+        response.status = 200;
 
-        return Promise.resolve();
+        return response.send() as Promise<void>;
     }
 }
