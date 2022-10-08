@@ -190,3 +190,10 @@ export class ExpressServer extends AppServer {
     }
 }
 ```
+
+## Additional info
+If you use InversifyJS or some other Inversion of Control framework, ensure to make AbstractServer injectable. In the case of InversifyJS this would work as follows.
+```typescript
+/* Make sure, AbstractServer is injectable. */
+decorate(injectable(), AbstractServer);
+```
