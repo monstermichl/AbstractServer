@@ -3,6 +3,7 @@ import {
     it,
 } from 'mocha';
 import { expect } from 'chai';
+import * as stream from 'node:stream';
 import {
     AbstractServer,
     IServerConfig,
@@ -20,8 +21,12 @@ import {
     Query,
     Params,
     Headers,
-    RequestHandlerParams,
     RequestHandlerInternal,
+    RequestHandlerRequest,
+    RequestHandlerResponse,
+    RequestNextHandler,
+    HeaderValue,
+    RequestHandler,
 } from '../src/request';
 import { IRoute } from '../src/route';
 
@@ -33,6 +38,10 @@ class ServerMock extends AbstractServer {
         /* This function is faked by Sinon.JS. */
         return [];
     }
+    protected _getResponseStream(_: Request, res: Response): stream.Writable {
+        return res;
+    }
+
     protected _getMethod(req: Request): RequestMethod | null {
         let method;
 
@@ -75,26 +84,24 @@ class ServerMock extends AbstractServer {
         return headers;
     }
 
-    protected _sendResponse(error: string | null, params: RequestHandlerParams, req: Request, res: Response): Promise<void> {
-        /* Send OK response only, if no error occurred. */
-        if (!error) {
-            const responseParams = params.response;
+    protected _setHeader(header: string, value: HeaderValue, _: Request, res: Response): boolean {
+        res.setHeader(header, value);
+        return true;
+    }
 
-            /* Set header fields. */
-            Object.entries(responseParams.headers).forEach(([key, value]) => res.setHeader(key, value));
-    
-            /* Set status. */
-            res.status(responseParams.status);
-    
-            /* Send body. */
-            if ((responseParams.body instanceof Object) || (responseParams.body instanceof Array)) {
-                res.json(responseParams.body);
-            } else {
-                res.send(responseParams.body);
-            }
+    protected _setStatus(status: number, _: Request, res: Response): boolean {
+        res.status(status);
+        return true;
+    }
+
+    protected _send(body: Body, _: Request, res: Response): Promise<void> {
+        /* Send body. */
+        if (!body) {
+            res.send();
+        } else if ((body instanceof Object) || (body as any instanceof Array)) {
+            res.json(body);
         } else {
-            /* Internal server error. */
-            res.status(500).send(error);
+            res.send(body);
         }
         return Promise.resolve();
     }
@@ -130,7 +137,7 @@ class ServerMock extends AbstractServer {
             case RequestMethod.PATCH: this._app.patch(route, handler); break;
             case RequestMethod.DELETE: this._app.delete(route, handler); break;
 
-            default: promise = Promise.reject();
+            default: promise = Promise.reject('Unknown method');
         }
         return promise || Promise.resolve(true);
     }
@@ -143,7 +150,10 @@ describe('AbstractServer tests', () => {
     const STANDARD_ROUTES = [{
         method: RequestMethod.GET,
         route: '/',
-        handler: (params: RequestHandlerParams) => console.log(params),
+        handler: (
+            _: RequestHandlerRequest,
+            response: RequestHandlerResponse,
+        ) => response.send(),
     }] as IRoute[];
     let serverMock: ServerMock;
 
@@ -195,7 +205,8 @@ describe('AbstractServer tests', () => {
     }
 
     function testSimpleRoute(method: RequestMethod, array?: boolean): Promise<unknown>;
-    function testSimpleRoute(method: RequestMethod, callout?: (...args: []) => Promise<void>): Promise<unknown>;
+    function testSimpleRoute(method: RequestMethod, callout?: RequestHandler): Promise<unknown>;
+    function testSimpleRoute(method: RequestMethod, callouts?: RequestHandler[]): Promise<unknown>;
     function testSimpleRoute(method: RequestMethod, arg: unknown = true): Promise<unknown> {
         let array: boolean;
         let callout;
@@ -210,11 +221,25 @@ describe('AbstractServer tests', () => {
         const route = {
             method,
             route: '/',
-            handler: callout ? callout : (requestParams: RequestHandlerParams) => {
-                expect(requestParams.request.method).to.be.equal(method);
+            handler: callout ? callout : (
+                request: RequestHandlerRequest,
+                response: RequestHandlerResponse,
+                next: RequestNextHandler
+            ) => {
+                expect(request.method).to.be.equal(method);
 
-                requestParams.response.status = 200;
-                return Promise.resolve();
+                /* For the coverage. */
+                response.body;
+                response.status;
+                response.stream;
+                response.misc;
+
+                /* Set response. */
+                response.status = 200;
+                response.body = [];
+                response.setHeader('content-type', 'application/json');
+
+                return response.send();
             },
         } as IRoute;
         return testRoutes(array ? [route] as any: route, axiosMethodFromRequestMethod(method), URL);
@@ -231,12 +256,16 @@ describe('AbstractServer tests', () => {
                 route: `${subRoute}`,
                 children: [{
                     route: '/:uuid',
-                    handler: (requestParams: RequestHandlerParams) => {
-                        expect(requestParams.request.method).to.be.equal(method);
-                        expect(requestParams.request.params.uuid).to.be.equal(uuid);
+                    handler: (
+                        request: RequestHandlerRequest,
+                        response: RequestHandlerResponse,
+                        next: RequestNextHandler
+                    ) => {
+                        expect(request.method).to.be.equal(method);
+                        expect(request.params.uuid).to.be.equal(uuid);
         
-                        requestParams.response.status = 200;
-                        return Promise.resolve();
+                        response.status = 200;
+                        return response.send();
                     },
                 }],
             }],
@@ -318,17 +347,39 @@ describe('AbstractServer tests', () => {
         describe('Failed', () => {
             it('No method', () => {
                 mockNoMethod();
-                testSimpleRoute(RequestMethod.GET).catch((err) => expect(err).to.be.equal('No request method'));
+                return testSimpleRoute(RequestMethod.GET)
+                    .then(() => Promise.reject())
+                    .catch((err) => expect(err.response.data).to.be.equal('No request method'));
             });
 
             it('No request handler', () => {
                 mockPath('/no-valid-path-4-sure');
-                testSimpleRoute(RequestMethod.GET).catch((err) => expect(err).to.be.equal('No request handler'));
+                return testSimpleRoute(RequestMethod.GET)
+                    .then(() => Promise.reject())
+                    .catch((err) => {
+                        expect(err.response.data).to.be.equal('No request handler');
+                    });
+            });
+
+            it('Request handler null', () => {
+                return testSimpleRoute(RequestMethod.GET, [null as unknown as RequestHandler])
+                    .then(() => Promise.reject())
+                    .catch((err) => {
+                        expect(err.response.data).to.be.equal('No callout');
+                    });
             });
 
             it('Request handler failed', () => {
                 const rejectMessage = 'Failed-4-sure';
-                testSimpleRoute(RequestMethod.GET, () => Promise.reject(rejectMessage)).catch((err) => expect(err).to.be.equal(rejectMessage));
+                return testSimpleRoute(RequestMethod.GET, (
+                    _: RequestHandlerRequest,
+                    response: RequestHandlerResponse
+                ) => {
+                    response.body = rejectMessage;
+                    return response.send() as Promise<void>;
+                })
+                    .then(() => Promise.reject())
+                    .catch((err) => expect(err.response.data).to.be.equal(rejectMessage));
             });
         });
     });
