@@ -15,61 +15,55 @@ export abstract class AppServer extends AbstractServer {
     protected _defineRoutes(): IRoute[] {
         return [{
             method: RequestMethod.GET,
-            route: '/hello', /* Listen to /hello. */
-            handler: this._getHelloHandler, /* Use a single request handler. */
+            route: '/hello',
             children: [{
                 route: '/world', /* Listen to /hello/world. */
 
                 /* Use several request handlers. The second one is only executed if the first one succeeds. */
-                handler: [this._getHelloHandler, this._getWorldHandler],
-            }, {
-                route: '/:value', /* Listen to /hello/:value. */
-
-                /* Use several request handlers. The second one is only executed if the first one succeeds. */
-                handler: [this._getHelloHandler, this._getValueHandler],
+                handler: [this._helloMiddleware, this._getWorldHandler],
             }]
+        }, {
+            method: RequestMethod.GET,
+            route: '/:value', /* Listen to /:value. */
+            handler: [this._getValueHandler],
         }] as IRoute[];
     }
 
+    protected abstract _getResponseStream(...args: unknown[]): stream.Writable;
     protected abstract _getMethod(...args: unknown[]): RequestMethod | null;
     protected abstract _getQuery(...args: unknown[]): Query;
     protected abstract _getPath(...args: unknown[]): string;
     protected abstract _getParams(...args: unknown[]): Params;
     protected abstract _getBody(...args: unknown[]): Body;
-    protected abstract _getHeaders(...args: unknown[]): Headers
-    protected abstract _sendResponse(error: string | null, params: RequestHandlerParams, ...args: unknown[]): Promise<void>;
+    protected abstract _getHeaders(...args: unknown[]): Headers;
+    protected abstract _setHeader(header: string, value: HeaderValue, ...args: unknown[]): boolean;
+    protected abstract _setStatus(status: number, ...args: unknown[]): boolean;
+    protected abstract _send(body?: Body, ...args: unknown[]): Promise<void>;
     protected abstract _connect(config?: IServerConfig | undefined): Promise<void>;
     protected abstract _disconnect(): Promise<void>;
     protected abstract _transformPath(path: string): string;
     protected abstract _addRoute(method: RequestMethod, route: string, handler: RequestHandlerInternal): Promise<boolean>;
 
-    private _getHelloHandler(params: RequestHandlerParams): Promise<void> {
-        const responseParams = params.response;
+    private async _helloMiddleware(_: RequestHandlerRequest, response: RequestHandlerResponse, next: RequestNextHandler): Promise<void> {
+        response.body = ['Hello']; /* Set body as array. */
+        response.status = 200;
 
-        responseParams.body = ['Hello']; /* Set body as array. */
-        responseParams.status = 200;
-
-        return Promise.resolve();
+        return next();
     }
 
-    private _getWorldHandler(params: RequestHandlerParams): Promise<void> {
-        const responseParams = params.response;
-
+    private _getWorldHandler(_: RequestHandlerRequest, response: RequestHandlerResponse): Promise<void> {
         /* Append to previously defined body array. */
-        (responseParams.body as unknown[]).push('World');
-        responseParams.status = 200;
+        (response.body as unknown[]).push('World');
+        response.status = 200;
 
-        return Promise.resolve();
+        return response.send() as Promise<void>;
     }
 
-    private _getValueHandler(params: RequestHandlerParams): Promise<void> {
-        const responseParams = params.response;
+    private _getValueHandler(request: RequestHandlerRequest, response: RequestHandlerResponse): Promise<void> {
+        response.body = `Provided param: ${request.params.value}`;
+        response.status = 200;
 
-        /* Append to previously defined body array. */
-        (responseParams.body as unknown[]).push(parseInt(params.request.params.value as string));
-        responseParams.status = 200;
-
-        return Promise.resolve();
+        return response.send() as Promise<void>;
     }
 }
 ```
@@ -80,6 +74,10 @@ export abstract class AppServer extends AbstractServer {
 export class ExpressServer extends AppServer {
     private _app = express();
     private _server: any;
+
+    protected _getResponseStream(_: Request, res: Response): stream.Writable {
+        return res;
+    }
 
     protected _getMethod(req: Request): RequestMethod | null {
         let method = null;
@@ -123,31 +121,26 @@ export class ExpressServer extends AppServer {
         return headers;
     }
 
-    protected _sendResponse(error: string | null, params: RequestHandlerParams, req: Request, res: Response): Promise<void> {
-        let promise;
+    protected _setHeader(header: string, value: HeaderValue, _: Request, res: Response): boolean {
+        res.setHeader(header, value);
+        return true;
+    }
 
-        /* Send OK response only, if no error occurred. */
-        if (!error) {
-            const responseParams = params.response;
+    protected _setStatus(status: number, _: Request, res: Response): boolean {
+        res.status(status);
+        return true;
+    }
 
-            /* Set header fields. */
-            Object.entries(responseParams.headers).forEach(([key, value]) => res.setHeader(key, value));
-    
-            /* Set status. */
-            res.status(responseParams.status);
-    
-            /* Send body. */
-            if ((responseParams.body instanceof Object) || (responseParams.body instanceof Array)) {
-                res.json(responseParams.body);
-            } else {
-                res.send(responseParams.body);
-            }
-            promise = Promise.resolve();
+    protected _send(body: Body, _: Request, res: Response): Promise<void> {
+        /* Send body. */
+        if (!body) {
+            res.send();
+        } else if ((body instanceof Object) || (body as any instanceof Array)) {
+            res.json(body);
         } else {
-            /* Internal server error. */
-            res.status(500).send(error);
+            res.send(body);
         }
-        return promise || Promise.reject();
+        return Promise.resolve();
     }
 
     protected _connect(config?: IServerConfig | undefined): Promise<void> {
@@ -184,7 +177,7 @@ export class ExpressServer extends AppServer {
             case RequestMethod.PATCH: this._app.patch(route, handler); break;
             case RequestMethod.DELETE: this._app.delete(route, handler); break;
 
-            default: promise = Promise.reject();
+            default: promise = Promise.reject('Unknown method');
         }
         return promise || Promise.resolve(true);
     }
