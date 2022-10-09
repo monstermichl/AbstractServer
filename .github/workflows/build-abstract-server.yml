@@ -91,12 +91,19 @@ jobs:
       shell: bash
       run: ./.github/scripts/build-readme.sh
     - name: Push README.md
+      shell: bash
       run: |
+        README_FILE="README.md"
+        README_BEFORE_PULL=$(cat "${README_FILE}")
         git pull
-        git config --global user.email "$GIT_MAIL"
-        git config --global user.name "$GIT_USER"
-        git commit README.md -m "Generate README.md"
-        git push
+        README_AFTER_PULL=$(cat "${README_FILE}")
+
+        if [[ "${README_BEFORE_PULL}" != "${README_AFTER_PULL}" ]]; then
+          git config --global user.email "$GIT_MAIL"
+          git config --global user.name "$GIT_USER"
+          git commit README.md -m "Generate README.md"
+          git push
+        fi
 
   # https://docs.github.com/en/actions/publishing-packages/publishing-nodejs-packages#publishing-packages-to-the-npm-registry
   release:
