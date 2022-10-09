@@ -1,3 +1,5 @@
+import * as stream from 'node:stream';
+
 export enum RequestMethod {
     GET = 1,
     POST = 2,
@@ -13,10 +15,6 @@ const DEFAULT_STATUS = 418; /* I'm a teapot. */
 
 interface RequestHandlerCommonParams {
     misc: Misc,
-}
-
-export interface RequestHandlerInfo {
-    last: boolean; /* True if this is the last handler in the handler chain. */
 }
 
 export interface RequestHandlerResponseServerCallouts {
@@ -40,6 +38,7 @@ export class RequestHandlerRequest implements RequestHandlerCommonParams {
 export class RequestHandlerResponse implements RequestHandlerCommonParams {
     private _serverCallouts: RequestHandlerResponseServerCallouts;
     private _args: unknown[];
+    private _responseStream: stream.Writable;
     private _status: number = DEFAULT_STATUS;
     private _headers: Headers = DEFAULT_HEADERS;
     private _body: Body = DEFAULT_BODY;
@@ -47,10 +46,12 @@ export class RequestHandlerResponse implements RequestHandlerCommonParams {
     constructor(
         serverCallouts: RequestHandlerResponseServerCallouts,
         args: unknown[],
+        responseStream: stream.Writable,
         public misc: Misc = DEFAULT_MISC,
     ) {
         this._serverCallouts = serverCallouts;
         this._args = args;
+        this._responseStream = responseStream;
         this.status = this._status;
     }
 
@@ -70,6 +71,10 @@ export class RequestHandlerResponse implements RequestHandlerCommonParams {
         this._body = body;
     }
 
+    get stream(): stream.Writable {
+        return this._responseStream;
+    }
+
     setHeader(header: string, value: HeaderValue) {
         this._headers[header] = value;
     }
@@ -87,13 +92,6 @@ export class RequestHandlerResponse implements RequestHandlerCommonParams {
     }
 }
 
-export class RequestHandlerParams {
-    constructor(
-        public request: RequestHandlerRequest,
-        public response: RequestHandlerResponse,
-    ) {}
-}
-
 export type Params = Record<string, unknown>;
 export type Query = Record<string, unknown>;
 export type Body = unknown;
@@ -101,4 +99,5 @@ export type Misc = Record<string, unknown>;
 export type HeaderValue = string | string[];
 export type Headers = Record<string, HeaderValue>;
 export type RequestHandlerInternal = (...args: unknown[]) => Promise<void>;
-export type RequestHandler = (request: RequestHandlerRequest, response: RequestHandlerResponse, handlerInfo?: RequestHandlerInfo) => Promise<void>;
+export type RequestHandler = (request: RequestHandlerRequest, response: RequestHandlerResponse, next: RequestNextHandler) => Promise<void>;
+export type RequestNextHandler = () => Promise<void>;

@@ -1,3 +1,4 @@
+import * as stream from 'node:stream';
 import {
     Params,
     Query,
@@ -111,6 +112,14 @@ export abstract class AbstractServer implements IServer {
     }
 
     /**
+     * Gets the response stream from the server implementation (e.g. Express).
+     *
+     * @param args All request handler args provided by the server implementation
+     *             (e.g. Express). E.g. req, res, next.
+     */
+    protected abstract _getResponseStream(...args: unknown[]): stream.Writable;
+
+    /**
      * Gets the request method from the server implementation (e.g. Express).
      * 
      * @param args All request handler args provided by the server implementation
@@ -178,7 +187,7 @@ export abstract class AbstractServer implements IServer {
      * @param args   All request handler args provided by the server implementation
      *               (e.g. Express). E.g. req, res, next.
      */
-    protected abstract _setStatus(status: number, ...args: []): boolean;
+    protected abstract _setStatus(status: number, ...args: unknown[]): boolean;
 
     /**
      * Sends a HTTP response via the server implementation (e.g. Express).
@@ -256,8 +265,10 @@ export abstract class AbstractServer implements IServer {
 
             /* Handle route only if a route-handler is provided. */
             if (route.handler) {
+                const transformedPath = this._transformPath(routeString);
+
                 /* Add route. */
-                result = this._addRoute(route.method, this._transformPath(routeString), this._requestHandler);
+                result = this._addRoute(route.method, transformedPath, this._requestHandler);
 
                 /* Make sure, method is set in callout map if not done yet. */
                 if (!(route.method in this._calloutMap)) {
@@ -341,46 +352,64 @@ export abstract class AbstractServer implements IServer {
             setHeader: this._setHeader,
             setStatus: this._setStatus,
             send: this._send,
-        }, args);
-
-        let callouts = this._findCallout(method, path);
+        }, args, this._getResponseStream());
+        const foundCallout = this._findCallout(method, path);
+        const sendError = (status: number, error: string) => {
+            this._setStatus(status, ...args);
+            return this._send(error, ...args);
+        };
         let processingResult = 'Unknown request error';
         let result;
 
         if (!method) {
             /* Without a method, no callout mapping is possible. */
             processingResult = 'No request method';
-        } else if (!callouts) {
+        } else if (!foundCallout) {
             /* Without a callout, no call is possible. */
             processingResult = 'No request handler';
         } else {
             result = new Promise<void>((resolve, reject) => {
+                let callouts: RequestHandler[];
+
                 /* If callouts is not an array but a single RequestHandler, make it an array. */
-                if (!(callouts instanceof Array)) {
-                    callouts = [callouts as RequestHandler];
+                if (!(foundCallout instanceof Array)) {
+                    callouts = [foundCallout as RequestHandler];
+                } else {
+                    callouts = foundCallout;
                 }
 
-                callouts.every(async (callout, i) => {
-                    const lastHandler = (i === (callouts ? callouts.length - 1 : 0));
-                    let dontBreakLoop;
+                try {
+                    let i = 0;
 
-                    try {
-                        await callout.call(this, request, response, {
-                            last: lastHandler,
-                        });
-                        dontBreakLoop = true;
-
-                        /* If all callouts in the chain completed successfully, send response and resolve Promise. */
-                        if (callouts && lastHandler) {
+                    /* By providing the next function to the callback it is possible to
+                        let the caller call the next callback in the chain. If no handler
+                        is left in the chain, the Promise is being resolved. */
+                    const next = async () => {
+                        if (i < callouts.length) {
+                            await callouts[i]?.call(this, request, response, next);
+                            i++;
+                        }
+                        
+                        if (i >= callouts.length) {
+                            /* If all callouts in the chain completed successfully, resolve Promise. */
                             resolve();
                         }
-                    } catch (err: unknown) {
-                        reject(err);
+                    };
+
+                    /* Only start process, if callout is defined. */
+                    if (!callouts[0]) {
+                        throw new Error('No callout');
                     }
-                    return dontBreakLoop;
-                });
+                    /* Start callout chain. */
+                    next();
+                } catch (err: unknown) {
+                    /* Send internal server error and reject Promise. */
+                    const e = (err as Error).toString();
+                    sendError(500, e).finally(() => reject(e));
+                }
             });
         }
-        return result || Promise.reject(processingResult);
+        /* Send precondition failed error if something went wrong. */
+        return result || sendError(412, processingResult);
     };
 }

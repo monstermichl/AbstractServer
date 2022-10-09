@@ -1,4 +1,5 @@
 /* <ignore-in-readme> */
+import * as stream from 'node:stream';
 import {
     AbstractServer,
     IServerConfig,
@@ -10,11 +11,10 @@ import {
     Body,
     Headers,
     RequestHandlerInternal,
-    RequestHandlerParams,
     HeaderValue,
     RequestHandlerRequest,
     RequestHandlerResponse,
-    RequestHandlerInfo,
+    RequestNextHandler,
 } from '../src/request';
 import { IRoute } from '../src/route';
 /* <dont-ignore-in-readme> */
@@ -25,28 +25,27 @@ export abstract class AppServer extends AbstractServer {
     protected _defineRoutes(): IRoute[] {
         return [{
             method: RequestMethod.GET,
-            route: '/hello', /* Listen to /hello. */
-            handler: this._getHelloHandler, /* Use a single request handler. */
+            route: '/hello',
             children: [{
                 route: '/world', /* Listen to /hello/world. */
 
                 /* Use several request handlers. The second one is only executed if the first one succeeds. */
-                handler: [this._getHelloHandler, this._getWorldHandler],
-            }, {
-                route: '/:value', /* Listen to /hello/:value. */
-
-                /* Use several request handlers. The second one is only executed if the first one succeeds. */
-                handler: [this._getHelloHandler, this._getValueHandler],
+                handler: [this._helloMiddleware, this._getWorldHandler],
             }]
+        }, {
+            method: RequestMethod.GET,
+            route: '/:value', /* Listen to /:value. */
+            handler: [this._getValueHandler],
         }] as IRoute[];
     }
 
+    protected abstract _getResponseStream(...args: unknown[]): stream.Writable;
     protected abstract _getMethod(...args: unknown[]): RequestMethod | null;
     protected abstract _getQuery(...args: unknown[]): Query;
     protected abstract _getPath(...args: unknown[]): string;
     protected abstract _getParams(...args: unknown[]): Params;
     protected abstract _getBody(...args: unknown[]): Body;
-    protected abstract _getHeaders(...args: unknown[]): Headers
+    protected abstract _getHeaders(...args: unknown[]): Headers;
     protected abstract _setHeader(header: string, value: HeaderValue, ...args: unknown[]): boolean;
     protected abstract _setStatus(status: number, ...args: unknown[]): boolean;
     protected abstract _send(body?: Body, ...args: unknown[]): Promise<void>;
@@ -55,12 +54,11 @@ export abstract class AppServer extends AbstractServer {
     protected abstract _transformPath(path: string): string;
     protected abstract _addRoute(method: RequestMethod, route: string, handler: RequestHandlerInternal): Promise<boolean>;
 
-    private _getHelloHandler(_: RequestHandlerRequest, response: RequestHandlerResponse, handlerInfo: RequestHandlerInfo): Promise<void> {
+    private async _helloMiddleware(_: RequestHandlerRequest, response: RequestHandlerResponse, next: RequestNextHandler): Promise<void> {
         response.body = ['Hello']; /* Set body as array. */
         response.status = 200;
 
-        /* If this was the last handler, send the response. */
-        return handlerInfo.last ? response.send() as Promise<void> : Promise.resolve();
+        return next();
     }
 
     private _getWorldHandler(_: RequestHandlerRequest, response: RequestHandlerResponse): Promise<void> {
@@ -72,8 +70,7 @@ export abstract class AppServer extends AbstractServer {
     }
 
     private _getValueHandler(request: RequestHandlerRequest, response: RequestHandlerResponse): Promise<void> {
-        /* Append to previously defined body array. */
-        (response.body as unknown[]).push(parseInt(request.params.value as string));
+        response.body = `Provided param: ${request.params.value}`;
         response.status = 200;
 
         return response.send() as Promise<void>;

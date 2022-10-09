@@ -1,5 +1,6 @@
 /* <ignore-in-readme> */
 import * as express from 'express';
+import * as stream from 'node:stream';
 import {
     Request,
     Response,
@@ -21,6 +22,10 @@ import { AppServer } from './app-server';
 export class ExpressServer extends AppServer {
     private _app = express();
     private _server: any;
+
+    protected _getResponseStream(_: Request, res: Response): stream.Writable {
+        return res;
+    }
 
     protected _getMethod(req: Request): RequestMethod | null {
         let method = null;
@@ -120,7 +125,7 @@ export class ExpressServer extends AppServer {
             case RequestMethod.PATCH: this._app.patch(route, handler); break;
             case RequestMethod.DELETE: this._app.delete(route, handler); break;
 
-            default: promise = Promise.reject();
+            default: promise = Promise.reject('Unknown method');
         }
         return promise || Promise.resolve(true);
     }
