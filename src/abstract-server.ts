@@ -404,7 +404,7 @@ export abstract class AbstractServer implements IServer {
                     next();
                 } catch (err: unknown) {
                     /* Send internal server error and reject Promise. */
-                    const e = (err as Error).toString();
+                    const e = (err as Error).message;
                     sendError(500, e).finally(() => reject(e));
                 }
             });
