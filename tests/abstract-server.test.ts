@@ -228,7 +228,7 @@ describe('AbstractServer tests', () => {
             ) => {
                 expect(request.method).to.be.equal(method);
 
-                /* For the coverage. */
+                /* Read properties for the coverage. */
                 response.body;
                 response.status;
                 response.stream;
