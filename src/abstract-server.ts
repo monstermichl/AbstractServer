@@ -1,4 +1,3 @@
-import * as stream from 'node:stream';
 import {
     Params,
     Query,
@@ -110,14 +109,6 @@ export abstract class AbstractServer implements IServer {
         }
         return result;
     }
-
-    /**
-     * Gets the response stream from the server implementation (e.g. Express).
-     *
-     * @param args All request handler args provided by the server implementation
-     *             (e.g. Express). E.g. req, res, next.
-     */
-    protected abstract _getResponseStream(...args: unknown[]): stream.Writable;
 
     /**
      * Gets the request method from the server implementation (e.g. Express).
@@ -352,7 +343,7 @@ export abstract class AbstractServer implements IServer {
             setHeader: this._setHeader,
             setStatus: this._setStatus,
             send: this._send,
-        }, args, this._getResponseStream());
+        }, args);
         const foundCallout = this._findCallout(method, path);
         const sendError = (status: number, error: string) => {
             this._setStatus(status, ...args);

@@ -1,5 +1,3 @@
-import * as stream from 'node:stream';
-
 export enum RequestMethod {
     GET = 1,
     POST = 2,
@@ -38,7 +36,6 @@ export class RequestHandlerRequest implements RequestHandlerCommonParams {
 export class RequestHandlerResponse implements RequestHandlerCommonParams {
     private _serverCallouts: RequestHandlerResponseServerCallouts;
     private _args: unknown[];
-    private _responseStream: stream.Writable;
     private _status: number = DEFAULT_STATUS;
     private _headers: Headers = DEFAULT_HEADERS;
     private _body: Body = DEFAULT_BODY;
@@ -46,12 +43,10 @@ export class RequestHandlerResponse implements RequestHandlerCommonParams {
     constructor(
         serverCallouts: RequestHandlerResponseServerCallouts,
         args: unknown[],
-        responseStream: stream.Writable,
         public misc: Misc = DEFAULT_MISC,
     ) {
         this._serverCallouts = serverCallouts;
         this._args = args;
-        this._responseStream = responseStream;
         this.status = this._status;
     }
 
@@ -69,10 +64,6 @@ export class RequestHandlerResponse implements RequestHandlerCommonParams {
 
     set body(body: Body) {
         this._body = body;
-    }
-
-    get stream(): stream.Writable {
-        return this._responseStream;
     }
 
     setHeader(header: string, value: HeaderValue) {

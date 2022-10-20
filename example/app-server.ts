@@ -1,5 +1,4 @@
 /* <ignore-in-readme> */
-import * as stream from 'node:stream';
 import {
     AbstractServer,
     IServerConfig,
@@ -39,7 +38,6 @@ export abstract class AppServer extends AbstractServer {
         }] as IRoute[];
     }
 
-    protected abstract _getResponseStream(...args: unknown[]): stream.Writable;
     protected abstract _getMethod(...args: unknown[]): RequestMethod | null;
     protected abstract _getQuery(...args: unknown[]): Query;
     protected abstract _getPath(...args: unknown[]): string;

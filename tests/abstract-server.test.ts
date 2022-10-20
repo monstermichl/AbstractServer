@@ -3,7 +3,6 @@ import {
     it,
 } from 'mocha';
 import { expect } from 'chai';
-import * as stream from 'node:stream';
 import {
     AbstractServer,
     IServerConfig,
@@ -37,9 +36,6 @@ class ServerMock extends AbstractServer {
     protected _defineRoutes(): IRoute[] {
         /* This function is faked by Sinon.JS. */
         return [];
-    }
-    protected _getResponseStream(_: Request, res: Response): stream.Writable {
-        return res;
     }
 
     protected _getMethod(req: Request): RequestMethod | null {
@@ -231,7 +227,6 @@ describe('AbstractServer tests', () => {
                 /* Read properties for the coverage. */
                 response.body;
                 response.status;
-                response.stream;
                 response.misc;
 
                 /* Set response. */
