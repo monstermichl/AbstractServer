@@ -34,7 +34,3 @@ decorate(injectable(), AbstractServer);
 ## TODO
 - [ ] Implement streaming capabilites (RequestHandlerResponse should act as output stream)
 - [ ] Implement TLS and certificate handling
-
----## TODO
-- [ ] Implement streaming capabilites (RequestHandlerResponse should act as output stream)
-- [ ] Implement TLS and certificate handling

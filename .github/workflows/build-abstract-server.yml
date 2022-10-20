@@ -98,11 +98,21 @@ jobs:
         git pull
         README_AFTER_PULL=$(cat "${README_FILE}")
 
+        echo "-----------------------------------------------"
+        echo "README before pull:"
+        echo "README_BEFORE_PULL"
+        echo "-----------------------------------------------"
+        echo "README after pull:"
+        echo "README_AFTER_PULL"
+        echo "-----------------------------------------------"
+
         if [[ "${README_BEFORE_PULL}" != "${README_AFTER_PULL}" ]]; then
           git config --global user.email "$GIT_MAIL"
           git config --global user.name "$GIT_USER"
           git commit README.md -m "Generate README.md"
           git push
+        else
+          echo "README didn't change"
         fi
 
   # https://docs.github.com/en/actions/publishing-packages/publishing-nodejs-packages#publishing-packages-to-the-npm-registry
