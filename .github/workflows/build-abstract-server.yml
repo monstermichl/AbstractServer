@@ -29,7 +29,9 @@ jobs:
       - uses: actions/checkout@v3
       - name: Generate index.ts
         shell: bash
-        run: ./.github/scripts/generate-index-ts.sh
+        run: |
+            chmod +x .github/scripts/generate-index-ts.sh
+            ./.github/scripts/generate-index-ts.sh
       - name: Push index.ts
         if: ${{ github.event_name != 'release' }}
         run: |
@@ -93,6 +95,7 @@ jobs:
         git pull
         README_FILE="README.md"
         README_BEFORE_GENERATION=$(cat "${README_FILE}")
+        chmod +x .github/scripts/build-readme.sh
         ./.github/scripts/build-readme.sh
         README_AFTER_GENERATION=$(cat "${README_FILE}")
 
