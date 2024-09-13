@@ -22,29 +22,10 @@ env:
   GIT_USER: 'monstermichl'
 
 jobs:
-  generate_index_ts:
-    name: Generate index.ts
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - name: Generate index.ts
-        shell: bash
-        run: |
-            chmod +x .github/scripts/generate-index-ts.sh
-            ./.github/scripts/generate-index-ts.sh
-      - name: Push index.ts
-        if: ${{ github.event_name != 'release' }}
-        run: |
-          git pull
-          git config --global user.email "$GIT_MAIL"
-          git config --global user.name "$GIT_USER"
-          git commit ./src/index.ts -m 'Generate index.ts'
-          git push
 
   lint:
     name: Lint source
     runs-on: ubuntu-latest
-    needs: generate_index_ts
     steps:
       - uses: actions/checkout@v3
       - name: Lint source
@@ -81,40 +62,6 @@ jobs:
         cache: 'npm'
     - run: npm ci
     - run: npm run build
-
-  update_readme:
-    name: Update README.md
-    runs-on: ubuntu-latest
-    needs: build
-    if: ${{ github.event_name != 'release' }}
-    steps:
-    - uses: actions/checkout@v3
-    - name: Generate README.md and push
-      shell: bash
-      run: |
-        git pull
-        README_FILE="README.md"
-        README_BEFORE_GENERATION=$(cat "${README_FILE}")
-        chmod +x .github/scripts/build-readme.sh
-        ./.github/scripts/build-readme.sh
-        README_AFTER_GENERATION=$(cat "${README_FILE}")
-
-        echo "-----------------------------------------------"
-        echo "README before pull:"
-        echo "${README_BEFORE_GENERATION}"
-        echo "-----------------------------------------------"
-        echo "README after pull:"
-        echo "${README_AFTER_GENERATION}"
-        echo "-----------------------------------------------"
-
-        if [[ "${README_BEFORE_GENERATION}" != "${README_AFTER_GENERATION}" ]]; then
-          git config --global user.email "$GIT_MAIL"
-          git config --global user.name "$GIT_USER"
-          git commit README.md -m "Generate README.md"
-          git push
-        else
-          echo "README didn't change"
-        fi
 
   # https://docs.github.com/en/actions/publishing-packages/publishing-nodejs-packages#publishing-packages-to-the-npm-registry
   release:
